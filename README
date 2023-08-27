@@ -9,8 +9,8 @@ Python 3.9.13 (main, May 23 2022, 22:02:02)
 Packages:
 os
 numpy==1.22.4
-cv2==4.5.5
-PIL==9.0.1
+opencv-python==4.5.5.62
+pillow==9.0.1
 tensorflow==2.9.0
 keras==2.9.0
 scipy==1.8.1
@@ -19,7 +19,7 @@ shutil
 chess==1.9.1
 collections
 glob
-re==2.2.1
+re
 sys
 
 Usage:
