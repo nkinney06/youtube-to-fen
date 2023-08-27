@@ -1,0 +1,56 @@
+
+
+python script that adds FEN strings of chess positions to youtube timestamps. This was part of the data gathering code I used awhile back for an app that recommends chess books and videos. The app has since been overshadowed by the excellent https://chessvision.ai/. Consequently, I've decided to open source some of my code.
+
+Python version:
+Python 3.9.13 (main, May 23 2022, 22:02:02)
+[GCC 7.5.0] on linux
+
+Packages:
+os
+numpy==1.22.4
+cv2==4.5.5
+PIL==9.0.1
+tensorflow==2.9.0
+keras==2.9.0
+scipy==1.8.1
+pytube==15.0.0
+shutil
+chess==1.9.1
+collections
+glob
+re==2.2.1
+sys
+
+Usage:
+Supply a youtube URL as a command line argument. Example: https://www.youtube.com/watch?v=3RJFt5fQZY8. Fen strings can be added to the timestamps as follows.
+python3.9 timestamps.py https://www.youtube.com/watch?v=3RJFt5fQZY8
+
+Output:
+A dataframe with four columns per line:
+column1: alpha-numeric title of the video (special characters are stripped)
+column2: youtube timestamp
+column3: zobrist hash key from white's perspective without ep square or castling rights. Basically this is a unique number assigned to each position.
+column4: fen string from whites perspective without ep square, castling rights, full move count, or half move count. These are hard to extract from the video and typically not necessary for research purposes.
+
+example output:
+...
+TORCH_CRUSHED_STOCKFISH https://www.youtube.com/watch?v=3RJFt5fQZY8&t=121       11325498232814909979    rnbqkbnr/1p1p1ppp/p3p3/8/3NP3/8/PPP2PPP/RNBQKB1R w - - 0 1
+TORCH_CRUSHED_STOCKFISH https://www.youtube.com/watch?v=3RJFt5fQZY8&t=122       11325498232814909979    rnbqkbnr/1p1p1ppp/p3p3/8/3NP3/8/PPP2PPP/RNBQKB1R w - - 0 1
+TORCH_CRUSHED_STOCKFISH https://www.youtube.com/watch?v=3RJFt5fQZY8&t=123       11325498232814909979    rnbqkbnr/1p1p1ppp/p3p3/8/3NP3/8/PPP2PPP/RNBQKB1R w - - 0 1
+TORCH_CRUSHED_STOCKFISH https://www.youtube.com/watch?v=3RJFt5fQZY8&t=124       11325498232814909979    rnbqkbnr/1p1p1ppp/p3p3/8/3NP3/8/PPP2PPP/RNBQKB1R w - - 0 1
+TORCH_CRUSHED_STOCKFISH https://www.youtube.com/watch?v=3RJFt5fQZY8&t=125       16850773455993771029    rnbqkbnr/1p1p1ppp/p3p3/8/2PNP3/8/PP3PPP/RNBQKB1R w - - 0 1
+TORCH_CRUSHED_STOCKFISH https://www.youtube.com/watch?v=3RJFt5fQZY8&t=126       5832886445043205657     rnbqkbnr/1p1p1ppp/p3p3/8/3NP3/8/PPR2PPP/RNBQKB1R w - - 0 1
+TORCH_CRUSHED_STOCKFISH https://www.youtube.com/watch?v=3RJFt5fQZY8&t=127       14528529218884592232    rnbqkbnr/1p1p1ppp/p3p3/8/3NP3/2P5/PPP2PPP/RNBQKB1R w - - 0 1
+TORCH_CRUSHED_STOCKFISH https://www.youtube.com/watch?v=3RJFt5fQZY8&t=128       11325498232814909979    rnbqkbnr/1p1p1ppp/p3p3/8/3NP3/8/PPP2PPP/RNBQKB1R w - - 0 1
+TORCH_CRUSHED_STOCKFISH https://www.youtube.com/watch?v=3RJFt5fQZY8&t=129       11325498232814909979    rnbqkbnr/1p1p1ppp/p3p3/8/3NP3/8/PPP2PPP/RNBQKB1R w - - 0 1
+...
+
+NOTES:
+1. Intermediate data is stored in the data folder and gets deleted at the end of the run.
+2. If there is no chessboard in the video frame the script will still try to output an FEN. For my purposes this didn't matter.
+3. I will release the training data and neural network training scripts in a seperate repo. Check back for updates.
+4. There are some novelties in the script, if you use it extensively please give me a shout out or hire me if I'm unemployed.
+5. It's fairly trivial to output an entire channel or playlist.
+6. The script runs slow. Could easily be sped up but its trivial to run in parallel for outputting a large dataset.
+7. If you're looking for timestamped FENs for a specific channel I might have them, feel free to send me a DM. 
