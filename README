@@ -2,6 +2,13 @@
 
 python script that adds FEN strings of chess positions to youtube timestamps. This was part of the data gathering code I used awhile back for an app that recommends chess books and videos. The app has since been overshadowed by the excellent https://chessvision.ai/. Consequently, I've decided to open source some of my code.
 
+Attention:
+This repo uses git lfs which I find a little confusing. To re-run on my machine I did the following:
+1. make a directory called youtube-to-fen-clone
+2. navigate to that directory and run git lfs install
+3. clone the repo: git clone https://github.com/nkinney06/youtube-to-fen.git
+4. navigate to youtube-to-fen directory and run the timestamp.py script (see below)
+
 Python version:
 Python 3.9.13 (main, May 23 2022, 22:02:02)
 [GCC 7.5.0] on linux
