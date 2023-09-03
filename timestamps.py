@@ -18,6 +18,7 @@ import glob
 import re
 import sys
 
+
 def get_content_type(link):
 	if '?v=' in link:
 		return 'Video'
@@ -29,52 +30,84 @@ def get_content_type(link):
 		return 'Unknown'
 	return 'Unknown'
 
-def downloadVideo(vidid):
-    yt = YouTube('https://www.youtube.com/watch?v=' + vidid)
-    
-    # download the .mp4 file
+
+def print_usage():
+    print("usage:")
+    print("python timestamps.py https://www.youtube.com/watch?v=your_video_id")
+    print("example:")
+    print("python timestamps.py https://www.youtube.com/watch?v=_j1dNtN6zow")
+    exit()
+
+
+def downloadVideo(link):
+    if '?v=' not in link:
+        print_usage()
+        
+    yt = YouTube(link)
     video = yt.streams.filter(progressive=True, file_extension='mp4').order_by('resolution').asc().first()
     video.download()
     
     # make the title alpha-numeric
-    orig_title = video.title.replace(".mp4","")
-    orig_title = orig_title.replace("'","")
-    title = re.sub('[\W_]+', ' ', orig_title, flags=re.UNICODE)
-    title = title.strip()
-    title = title.replace(" ","_")
+    alphaNumericTitle = yt.title.replace("'","")
+    alphaNumericTitle = re.sub('[\W_]+', ' ', alphaNumericTitle, flags=re.UNICODE)
+    alphaNumericTitle = alphaNumericTitle.strip()
+    alphaNumericTitle = alphaNumericTitle.replace(" ","_")
+
+    # not sure this is necessary
+    mp4 = glob.glob("*.mp4")[0]
+    shutil.copy(mp4, alphaNumericTitle + ".mp4")
     
-    # get fps and number of frames
-    video = glob.glob("*.mp4")[0]
-    vid_cap = cv2.VideoCapture(video)
-    fps = vid_cap.get(cv2.CAP_PROP_FPS)
-    frames = vid_cap.get(cv2.CAP_PROP_FRAME_COUNT)
+    # get the fps
+    vid = cv2.VideoCapture(mp4)
+    fps = vid.get(cv2.CAP_PROP_FPS)
     
-    # get the links
-    downloadLink = "https://www.youtube.com/watch?v=" + vidid
-    embedLink = downloadLink.replace("watch?v=","embed/")
+    # get the frames
+    framen = 0  # frame number
+    frames = [] # list of frames
+    while vid.isOpened():
+        success,image = vid.read() 
+        if not success:
+            break
+        if (framen % fps) == 0:
+            if framen > 0:
+                frames.append(image)
+        framen += 1
+    vid.release()
+    cv2.destroyAllWindows()
     
-    # return the results
-    videoInfo = { "fps": fps, "title": orig_title, "downloadLink": downloadLink, "embedLink": embedLink, "shortName": title, "author": yt.author, "fullTitle": video }
+    # return dictionary including list of the video frames
+    videoInfo = { "fps": fps, "title": alphaNumericTitle, "author": yt.author, "frames":frames }
     return videoInfo
 
 
-def extract_frames(title,every_x_frame):
-    vid_cap = cv2.VideoCapture(title + ".mp4")
-    frame_cnt = 0
-    img_cnt = 0
-    while vid_cap.isOpened():
-        success,image = vid_cap.read() 
-        if not success:
-            break
-        if (frame_cnt % every_x_frame) == 0:
-            if frame_cnt > 0:
-                cv2.imwrite("data/"+title+"_frame_"+str(img_cnt)+"_image.jpg", image)
-                img_cnt += 1
-        frame_cnt += 1
-    vid_cap.release()
-    cv2.destroyAllWindows()
+def normalize_frame(frame):
+    frame = tf.keras.utils.array_to_img(frame)
+    frame = tf.image.rgb_to_grayscale(frame)
+    frame = tf.image.convert_image_dtype(frame, tf.uint8)
+    frame = tf.image.resize(frame, (128, 128))
+    frame = tf.cast(frame, tf.float32) / 255.0
+    return frame
 
-            
+
+def predict_frame(frame):
+
+    AUTOTUNE = tf.data.experimental.AUTOTUNE
+    
+    def create_mask(pred_mask: tf.Tensor) -> tf.Tensor:
+        pred_mask = tf.argmax(pred_mask, axis=-1)
+        pred_mask = tf.expand_dims(pred_mask, axis=-1)
+        return pred_mask
+    
+    frame = normalize_frame(frame)
+    json_file = open('frameModel.json', 'r') # load json and create model
+    loaded_model_json = json_file.read()
+    json_file.close()
+    loaded_model = model_from_json(loaded_model_json)
+    loaded_model.load_weights('frameModel.h5') # load weights into new model
+    pred_mask = create_mask(loaded_model.predict(frame[tf.newaxis, ...]))
+    return pred_mask[0]
+
+
 def checkers(bsize,buffs):
     a = np.zeros((8,8))
     a[1::2,::2] = 2
@@ -237,249 +270,105 @@ def trimBoard(board):
     b = np.zeros(Dc.shape)
     b[0:a.shape[0],0:a.shape[1]] = a
     return b,j[0],k[0],i[0]
-       
-    
-def numpyImage(path,dtype = "float32"):
-    orig = PImage.open(path)
-    originalPage = np.asarray(orig.convert("L"), dtype=np.float32) if dtype == "float32" else np.array(orig)
-    orig.close()
-    return originalPage
 
 
-def display_array(a, fmt='jpeg', rng=[0,1], fName="defaultImage"):
-  a = (a - rng[0])/float(rng[1] - rng[0])*255
-  a = np.uint8(np.clip(a, 0, 255))
-  PImage.fromarray(a).save(fName,format="PNG")
+def reverseVideoMask(frame,pred_mask):
+    frame = PImage.fromarray(frame)
+    frame = np.asarray(frame.convert("L"), dtype=np.float32)
+    prediction = tf.keras.preprocessing.image.array_to_img(tf.image.resize(pred_mask, frame.shape))
+    labels, nb = ndimage.label(prediction)
+    boardsDetected = []
+    endMask = np.zeros(frame.shape)
+    for i in range(1,nb+1):
+        sl = ndimage.find_objects(labels==i)
+        length,width = frame[sl[0]].shape
+        if ( ( length > 120 ) & ( width > 120 ) ):
+            trimmed,ox,oy,oz = trimBoard(frame[sl[0]])
+            boardsDetected.append(trimmed)
+            endMask[sl[0][0].start + ox:sl[0][0].start + ox + 8*oz,sl[0][1].start + oy:sl[0][1].start + oy + 8*oz] = 255      
+    return endMask
 
 
-def imageArrays(images):
-    arrays = dict()
-    for image in images:
-        img = PImage.open(image)
-        arrays[image] = np.array(img)
-        img.close()
-    return arrays
-
-
-def imageLabels(images):
-    pieceCodes = { 'P':0,'N':1,'B':2,'R':3,'Q':4,'K':5,'p':6,'n':7,'b':8,'r':9,'q':10,'k':11,'E':12,'e':12 }
-    labels = dict()
-    for k in images: # get the labels
-        info = [ x.replace(".png","") for x in k.split("_") ]
-        labels[k] = pieceCodes[info[-1]] if info[-1] in pieceCodes else int(float(info[-1]))
-    return labels
-
-
-def outputBoards(pageImage,maskImage,prefix):
-    orig = numpyImage(pageImage)
-    mask = numpyImage(maskImage)
+def outputBoards(frame,mask,rng=[0,1]):
     cols = ['a','b','c','d','e','f','g','h']
     rows = ['8','7','6','5','4','3','2','1']
     labels, nb = ndimage.label(mask)
+    boards = []
     for i in range(1,nb+1):
         sl = ndimage.find_objects(labels==i)
-        display_array(orig[sl[0]],rng=[0,255],fName=prefix + str(i) + ".png")
-        board = numpyImage(prefix + str(i) + ".png")
+        board = frame[sl[0]]
         squareSizes = [int(x/8) for x in board.shape]
+        pieces = dict()
         for x in range(8):
             for y in range(8):
-                PImage.fromarray(board[y*squareSizes[0]:(y+1)*squareSizes[0],x*squareSizes[1]:(x+1)*squareSizes[1]]).convert("L").resize([32,32], PImage.ADAPTIVE).save(prefix + str(i) + "_" + cols[x] + rows[y] + ".png")
-    return nb
-
-	
-def predict_frame(imagePath):
-
-    AUTOTUNE = tf.data.experimental.AUTOTUNE
-
-    def parse_image(img_path: str) -> dict:
-        image = tf.io.read_file(img_path)
-        image = tf.image.decode_jpeg(image, channels=1)
-        image = tf.image.convert_image_dtype(image, tf.uint8)
-        return {'image': image }
-
-    @tf.function
-    def normalize(input_image: tf.Tensor) -> tuple:
-        input_image = tf.cast(input_image, tf.float32) / 255.0
-        return input_image
-
-    @tf.function
-    def load_image_train(datapoint: dict) -> tuple:
-        input_image = tf.image.resize(datapoint['image'], (IMG_SIZE, IMG_SIZE))
-        input_image = normalize(input_image)
-        return input_image
-
-    @tf.function
-    def load_image_test(datapoint: dict) -> tuple:
-        input_image = tf.image.resize(datapoint['image'], (IMG_SIZE, IMG_SIZE))
-        input_image = normalize(input_image)
-        return input_image
-
-    IMG_SIZE = 128
-    BUFFER_SIZE = 1000
-    SEED = 42
-    BATCH_SIZE = 1
-    pages = tf.data.Dataset.list_files(imagePath)
-    pages = pages.map(parse_image)
-    dataset = {"train": pages }
-    dataset['train'] = dataset['train'].map(load_image_train, num_parallel_calls=tf.data.experimental.AUTOTUNE)
-    dataset['train'] = dataset['train'].shuffle(buffer_size=BUFFER_SIZE, seed=SEED)
-    dataset['train'] = dataset['train'].repeat()
-    dataset['train'] = dataset['train'].batch(BATCH_SIZE)
-    dataset['train'] = dataset['train'].prefetch(buffer_size=AUTOTUNE)
-
-    def create_mask(pred_mask: tf.Tensor) -> tf.Tensor:
-        pred_mask = tf.argmax(pred_mask, axis=-1)
-        pred_mask = tf.expand_dims(pred_mask, axis=-1)
-        return pred_mask
-
-    json_file = open('frameModel.json', 'r') # load json and create model
-    loaded_model_json = json_file.read()
-    json_file.close()
-    loaded_model = model_from_json(loaded_model_json)
-    loaded_model.load_weights('frameModel.h5') # load weights into new model
-    for image in dataset['train'].take(1):
-        sample_image = image
-    pred_mask = create_mask(loaded_model.predict(sample_image[0][tf.newaxis, ...]))
-    display_list = [sample_image[0],pred_mask[0]]
-    titles = ['Input Page', 'Predicted Mask']
-    return pred_mask[0]
+                pieces[cols[x] + rows[y]] = np.array(PImage.fromarray(board[y*squareSizes[0]:(y+1)*squareSizes[0],x*squareSizes[1]:(x+1)*squareSizes[1]]).convert("L").resize([32,32], PImage.ADAPTIVE))
+        boards.append(pieces)
+    return boards
 
 
-def useNetwork(images,network,img_rows=32,img_cols=32):
-    json_file = open('./' + network + '.json', 'r') # load json and create model
-    loaded_model_json = json_file.read()
-    json_file.close()
-    loaded_model = model_from_json(loaded_model_json)
-    loaded_model.load_weights('./' + network + '.h5') # load weights into new model
-    x_input, imName = ([] for i in range(2))
-    for k in images: # convert images to numpy
-        x_input.append(images[k])
-        imName.append(k)
-    x_input = np.array(x_input)
-    if K.image_data_format() == 'channels_first':
-        x_input = x_input.reshape(x_input.shape[0], 1, img_rows, img_cols)
-        input_shape = (1, img_rows, img_cols)
-    else:
-        x_input = x_input.reshape(x_input.shape[0], img_rows, img_cols, 1)
-        input_shape = (img_rows, img_cols, 1)
-    x_input = x_input.astype('float32') / 255
-    predictions = dict()
-    confidences = dict()
-    for obs in range(len(x_input)):
-        input = x_input[None,obs]
-        preds = loaded_model.predict(input,verbose=0)
-        predictions[imName[obs]] = np.argmax(preds[0])
-        confidences[imName[obs][-6:-4]] = max(preds[0])
-    return predictions,confidences
-
-        
-def imageArrays(images):
-    arrays = dict()
-    for image in images:
-        img = PImage.open(image)
-        arrays[image] = np.array(img)
-        img.close()
-    return arrays
-
-
-def reverseVideoMask(title,frameNum,pred_mask):
-        im = numpyImage("data/" + title + "_frame_" + str(frameNum) + "_image.jpg")
-        prediction = tf.keras.preprocessing.image.array_to_img(tf.image.resize(pred_mask, im.shape))
-        tf.keras.utils.save_img("data/" + title + "_frame_" + str(frameNum) + "_mask.jpg",tf.image.resize(pred_mask, im.shape))
-        mask = numpyImage("data/" + title + "_frame_" + str(frameNum) + "_mask.jpg")
-        orig = numpyImage("data/" + title + "_frame_" + str(frameNum) + "_image.jpg")   
-        labels, nb = ndimage.label(mask)
-        boardsDetected = []
-        endMask = np.zeros(orig.shape)
-        for i in range(1,nb+1):
-            sl = ndimage.find_objects(labels==i)
-            length,width = orig[sl[0]].shape
-            if ( ( length > 120 ) & ( width > 120 ) ):
-                trimmed,ox,oy,oz = trimBoard(orig[sl[0]])
-                boardsDetected.append(trimmed)
-                display_array(orig[sl[0]],rng=[0,255],fName="data/" + title + "_frame_" + str(frameNum) + "_board_" + str(len(boardsDetected)) + ".png")
-                endMask[sl[0][0].start + ox:sl[0][0].start + ox + 8*oz,sl[0][1].start + oy:sl[0][1].start + oy + 8*oz] = 255      
-        display_array(endMask,rng=[0,255],fName="data/" + title + "_frame_" + str(frameNum) + "_mask.jpg")
-
-        
-def predictFrames(title,frameNum,downloadLink,embedLink,fps,channel):
-    Frame = col.namedtuple('Frame', ['title', 'time', 'link', 'zobristWhite', 'fenStringWhite', 'turn', 'fps', 'downloadLink', 'embedLink', 'author'])
-    frames = glob.glob("data/" + title + "_frame_*_image.jpg")
-    pieces = ['P','N','B','R','Q','K','p','n','b','r','q','k','E','E']
-    for i in range(len(frames)):
-        prefix = "data/" + title + "_frame_" + str(i) + "_board_"
-        numBoards = outputBoards("data/"+title+"_frame_"+str(i)+"_image.jpg","data/"+title+"_frame_"+str(frameNum)+"_mask.jpg",prefix)
-        for boardNum in range(1,numBoards+1):
-            images = glob.glob("data/" + title + "_frame_" + str(i) + "_board_" + str(boardNum) + "_*.png")
-            predictions,confidence = useNetwork(imageArrays(images),"pieceModelVideo")
-            guesses = [[x,pieces[y]] for (x,y) in predictions.items() if pieces[y] != 'E']
-            b = chess.Board()
-            b.clear()
-            flip = False
-            [ b.set_piece_at(chess.SQUARE_NAMES.index(x[0][-6:-4]),chess.Piece.from_symbol(x[1])) for x in guesses if x[1] != 'e' ]
-            bflip = chess.Board() # flip the board if necessary
-            bflip.clear_board()
-            if ( len(chess.SquareSet(b.occupied_co[0])) > 0 ):
-                if ( len(chess.SquareSet(b.occupied_co[1])) > 0 ):
-                    if ( sum(chess.SquareSet(b.occupied_co[0]))/len(chess.SquareSet(b.occupied_co[0])) < sum(chess.SquareSet(b.occupied_co[1]))/len(chess.SquareSet(b.occupied_co[1])) ):
-                        for square in chess.SquareSet(b.occupied_co[0]):
-                            bflip.set_piece_at(chess.SQUARES[63-square],b.piece_at(square))
-                        for square in chess.SquareSet(b.occupied_co[1]):
-                            bflip.set_piece_at(chess.SQUARES[63-square],b.piece_at(square))
-                        b = bflip
-                        flip = True
-            fenStringWhite = b.fen()
-            zobristWhite = chess.polyglot.zobrist_hash(b)
-            timepoint = i
-            F = Frame(title,timepoint,downloadLink + "&t=" + str(timepoint),str(zobristWhite).rstrip(),fenStringWhite.strip(),1,fps,downloadLink,embedLink,title)
-            print(title+"\t"+F.link+"\t"+F.zobristWhite+"\t"+F.fenStringWhite)
-                
-                
-def outputFens(vidid):
-    videoInfo = downloadVideo(vidid)
-    title = videoInfo['shortName']
-    channel = videoInfo['author']
-    shutil.copy(glob.glob("*.mp4")[0], title + ".mp4")
-    extract_frames(title,int(videoInfo['fps']))
-    extractedframes = glob.glob("data/" + title + "_frame_*_image.jpg")
-    pred_mask = predict_frame("data/" + title + "_frame_" + str(int(len(extractedframes)/2)) + "_image.jpg")
-    reverseVideoMask(title,int(len(extractedframes)/2),pred_mask)
-    predictFrames(title,int(len(extractedframes)/2),videoInfo['downloadLink'],videoInfo['embedLink'],videoInfo['fps'],channel)
-    for myfile in glob.glob("*.mp4"):
-        os.remove(myfile)
-    for myfile in glob.glob("data/*"):
-        os.remove(myfile)
-
-
-def print_usage():
-    print("usage:")
-    print("python timestamps.py https://www.youtube.com/watch?v=your_video_id")
-    print("example:")
-    print("python timestamps.py https://www.youtube.com/watch?v=_j1dNtN6zow")
-    exit()
-
-
-############################################################################################################
+#########################################################################################################
 ## main programming section
-############################################################################################################
+#########################################################################################################
+
+# check for correct usage
 if len(sys.argv) < 2:
     print_usage()
-content = sys.argv[1]
-content_type = get_content_type(content)
-if content_type == "Video":
-    videoID = content.replace('https://www.youtube.com/watch?v=','')
-    outputFens(videoID)
-    exit()
-else:
-    print_usage()
+link = sys.argv[1]
+content_type = get_content_type(link)
+if content_type != "Video":
+	print_usage()
 
+# download the video
+video = downloadVideo(link)
 
+# pick one frame in the middle to predict where the board is
+pred_mask = predict_frame(video['frames'][int(len(video['frames'])/2)])
+mask = reverseVideoMask(video['frames'][int(len(video['frames'])/2)],pred_mask)
 
+# load the piece model used to predict pieces for each board
+json_file = open('./pieceModel.json', 'r') # load json and create model
+loaded_model_json = json_file.read()
+json_file.close()
+loaded_model = model_from_json(loaded_model_json)
+loaded_model.load_weights('./pieceModel.h5') # load weights into new model
 
+# loop over the frames and output the FEN string for each one
+for i,frame in enumerate(video['frames']):
+    
+    # output the boards using the predicted mask as a template
+    boards = outputBoards(frame,mask)
 
-		
-		
-		
-		
-		
-		
+    # collect images for each square
+    sq_names,sq_image = [],[]
+    for sq,im in boards[0].items():
+        sq_names.append(sq)
+        sq_image.append(im.reshape(32,32,1))
+    sq_image = np.array(sq_image)
+
+    # collect predictions using the piece model
+    predictions = dict()
+    pieces = ['P','N','B','R','Q','K','p','n','b','r','q','k','E','E']
+    for j in range(len(sq_image)):
+        prediction = loaded_model.predict(sq_image[None,j],verbose=0)
+        predictions[sq_names[j]] = pieces[np.argmax(prediction[0])]
+        
+    # set up a board using the predictions
+    board = chess.Board(None)
+    for square,piece in predictions.items():
+        if piece != 'E':
+            board.set_piece_at(chess.SQUARE_NAMES.index(square),chess.Piece.from_symbol(piece))
+
+    # flip the board if necessary (could probably improve this code)
+    bflip = chess.Board(None) 
+    if ( len(chess.SquareSet(board.occupied_co[0])) > 0 ):
+        if ( len(chess.SquareSet(board.occupied_co[1])) > 0 ):
+            if ( sum(chess.SquareSet(board.occupied_co[0]))/len(chess.SquareSet(board.occupied_co[0])) < sum(chess.SquareSet(board.occupied_co[1]))/len(chess.SquareSet(board.occupied_co[1])) ):
+                for square in chess.SquareSet(board.occupied_co[0]):
+                    bflip.set_piece_at(chess.SQUARES[63-square],board.piece_at(square))
+                for square in chess.SquareSet(board.occupied_co[1]):
+                    bflip.set_piece_at(chess.SQUARES[63-square],board.piece_at(square))
+                board = bflip
+
+    # pring the result
+    print("{}\t{}\t{}\t{}\t{}".format(video['title'],video['author'].replace(" ","_"),link+"&t="+str(i)+"s",chess.polyglot.zobrist_hash(board),board.fen()))
+

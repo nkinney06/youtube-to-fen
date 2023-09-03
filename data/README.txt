@@ -1,1 +1,0 @@
-This folder gets populated with intermediate png and jpgs as the programs works on extracting the video frame by frame.
