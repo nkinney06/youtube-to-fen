@@ -33,8 +33,8 @@ re
 sys
 
 Usage:
-Supply a youtube URL as a command line argument. Example: https://www.youtube.com/watch?v=3RJFt5fQZY8. Fen strings can be added to the timestamps as follows.
-python timestamps.py https://www.youtube.com/watch?v=3RJFt5fQZY8
+Supply a youtube URL as a command line argument. Example: https://www.youtube.com/watch?v=0yopom_euo8. Fen strings can be added to the timestamps as follows.
+python timestamps.py https://www.youtube.com/watch?v=0yopom_euo8
 
 Output:
 A dataframe with five columns per line:
@@ -45,16 +45,19 @@ column4: zobrist hash key from white's perspective without ep square or castling
 column5: fen string from whites perspective without ep square, castling rights, full move count, or half move count. These are hard to extract from the video and typically not necessary for research purposes.
 
 example output:
-...
-TORCH_CRUSHED_STOCKFISH https://www.youtube.com/watch?v=3RJFt5fQZY8&t=121       11325498232814909979    rnbqkbnr/1p1p1ppp/p3p3/8/3NP3/8/PPP2PPP/RNBQKB1R w - - 0 1
-TORCH_CRUSHED_STOCKFISH https://www.youtube.com/watch?v=3RJFt5fQZY8&t=122       11325498232814909979    rnbqkbnr/1p1p1ppp/p3p3/8/3NP3/8/PPP2PPP/RNBQKB1R w - - 0 1
-TORCH_CRUSHED_STOCKFISH https://www.youtube.com/watch?v=3RJFt5fQZY8&t=123       11325498232814909979    rnbqkbnr/1p1p1ppp/p3p3/8/3NP3/8/PPP2PPP/RNBQKB1R w - - 0 1
-TORCH_CRUSHED_STOCKFISH https://www.youtube.com/watch?v=3RJFt5fQZY8&t=124       11325498232814909979    rnbqkbnr/1p1p1ppp/p3p3/8/3NP3/8/PPP2PPP/RNBQKB1R w - - 0 1
-TORCH_CRUSHED_STOCKFISH https://www.youtube.com/watch?v=3RJFt5fQZY8&t=125       16850773455993771029    rnbqkbnr/1p1p1ppp/p3p3/8/2PNP3/8/PP3PPP/RNBQKB1R w - - 0 1
-TORCH_CRUSHED_STOCKFISH https://www.youtube.com/watch?v=3RJFt5fQZY8&t=126       5832886445043205657     rnbqkbnr/1p1p1ppp/p3p3/8/3NP3/8/PPR2PPP/RNBQKB1R w - - 0 1
-TORCH_CRUSHED_STOCKFISH https://www.youtube.com/watch?v=3RJFt5fQZY8&t=127       14528529218884592232    rnbqkbnr/1p1p1ppp/p3p3/8/3NP3/2P5/PPP2PPP/RNBQKB1R w - - 0 1
-TORCH_CRUSHED_STOCKFISH https://www.youtube.com/watch?v=3RJFt5fQZY8&t=128       11325498232814909979    rnbqkbnr/1p1p1ppp/p3p3/8/3NP3/8/PPP2PPP/RNBQKB1R w - - 0 1
-TORCH_CRUSHED_STOCKFISH https://www.youtube.com/watch?v=3RJFt5fQZY8&t=129       11325498232814909979    rnbqkbnr/1p1p1ppp/p3p3/8/3NP3/8/PPP2PPP/RNBQKB1R w - - 0 1
+THE_GREATEST_SUB_BATTLE_CLIP_OF_ALL_TIME        GMHikaru_Clips  https://www.youtube.com/watch?v=0yopom_euo8&t=0s        4937601533023818264     2rqkb1r/pp3ppp/8/5b2/3pn3/N7/PPP2QPP/R3KB1R w - - 0 1
+THE_GREATEST_SUB_BATTLE_CLIP_OF_ALL_TIME        GMHikaru_Clips  https://www.youtube.com/watch?v=0yopom_euo8&t=1s        4937601533023818264     2rqkb1r/pp3ppp/8/5b2/3pn3/N7/PPP2QPP/R3KB1R w - - 0 1
+THE_GREATEST_SUB_BATTLE_CLIP_OF_ALL_TIME        GMHikaru_Clips  https://www.youtube.com/watch?v=0yopom_euo8&t=2s        4937601533023818264     2rqkb1r/pp3ppp/8/5b2/3pn3/N7/PPP2QPP/R3KB1R w - - 0 1
+THE_GREATEST_SUB_BATTLE_CLIP_OF_ALL_TIME        GMHikaru_Clips  https://www.youtube.com/watch?v=0yopom_euo8&t=3s        4937601533023818264     2rqkb1r/pp3ppp/8/5b2/3pn3/N7/PPP2QPP/R3KB1R w - - 0 1
+THE_GREATEST_SUB_BATTLE_CLIP_OF_ALL_TIME        GMHikaru_Clips  https://www.youtube.com/watch?v=0yopom_euo8&t=4s        4937601533023818264     2rqkb1r/pp3ppp/8/5b2/3pn3/N7/PPP2QPP/R3KB1R w - - 0 1
+THE_GREATEST_SUB_BATTLE_CLIP_OF_ALL_TIME        GMHikaru_Clips  https://www.youtube.com/watch?v=0yopom_euo8&t=5s        4937601533023818264     2rqkb1r/pp3ppp/8/5b2/3pn3/N7/PPP2QPP/R3KB1R w - - 0 1
+THE_GREATEST_SUB_BATTLE_CLIP_OF_ALL_TIME        GMHikaru_Clips  https://www.youtube.com/watch?v=0yopom_euo8&t=6s        4937601533023818264     2rqkb1r/pp3ppp/8/5b2/3pn3/N7/PPP2QPP/R3KB1R w - - 0 1
+THE_GREATEST_SUB_BATTLE_CLIP_OF_ALL_TIME        GMHikaru_Clips  https://www.youtube.com/watch?v=0yopom_euo8&t=7s        4937601533023818264     2rqkb1r/pp3ppp/8/5b2/3pn3/N7/PPP2QPP/R3KB1R w - - 0 1
+THE_GREATEST_SUB_BATTLE_CLIP_OF_ALL_TIME        GMHikaru_Clips  https://www.youtube.com/watch?v=0yopom_euo8&t=8s        1493745903597334173     2rqkb1r/pp3ppp/8/5Q2/3pn3/N7/PPP3PP/R3KB1R w - - 0 1
+THE_GREATEST_SUB_BATTLE_CLIP_OF_ALL_TIME        GMHikaru_Clips  https://www.youtube.com/watch?v=0yopom_euo8&t=9s        1493745903597334173     2rqkb1r/pp3ppp/8/5Q2/3pn3/N7/PPP3PP/R3KB1R w - - 0 1
+THE_GREATEST_SUB_BATTLE_CLIP_OF_ALL_TIME        GMHikaru_Clips  https://www.youtube.com/watch?v=0yopom_euo8&t=10s       1493745903597334173     2rqkb1r/pp3ppp/8/5Q2/3pn3/N7/PPP3PP/R3KB1R w - - 0 1
+THE_GREATEST_SUB_BATTLE_CLIP_OF_ALL_TIME        GMHikaru_Clips  https://www.youtube.com/watch?v=0yopom_euo8&t=11s       1493745903597334173     2rqkb1r/pp3ppp/8/5Q2/3pn3/N7/PPP3PP/R3KB1R w - - 0 1
+THE_GREATEST_SUB_BATTLE_CLIP_OF_ALL_TIME        GMHikaru_Clips  https://www.youtube.com/watch?v=0yopom_euo8&t=12s       1493745903597334173     2rqkb1r/pp3ppp/8/5Q2/3pn3/N7/PPP3PP/R3KB1R w - - 0 1
 ...
 
 NOTES:
